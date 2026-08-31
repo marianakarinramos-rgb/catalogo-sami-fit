@@ -290,7 +290,7 @@
         </div>
     </div>
 
-    <!-- MOTOR JS: DB + EXPORTACIÓN EXCEL -->
+    <!-- MOTOR JS: ACTUALIZACIÓN OPTIMISTA ULTRA-RÁPIDA -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyBzgIYRyMFLL616w_OhOO_dC6bR7df5kCI",
@@ -336,7 +336,7 @@
                             .catch(e => { console.error(e); resolve(false); });
                     } else { resolve(true); }
                 } catch (e) { resolve(false); }
-                finally { setTimeout(() => { isUploading = false; }, 1000); }
+                finally { setTimeout(() => { isUploading = false; }, 800); }
             });
         }
 
@@ -401,10 +401,12 @@
         function guardarInfoEmpresa() { 
             db.config.nombreEmpresa = document.getElementById('conf-empresa-nombre').value.trim() || 'Dietética Sami';
             db.config.whatsappTurnos = document.getElementById('conf-empresa-ws').value.trim() || '';
-            guardarBD().then(() => { aplicarConfiguracion(); mostrarToast('Configuración guardada'); });
+            aplicarConfiguracion();
+            mostrarToast('Configuración guardada');
+            guardarBD(); // Asíncrono en background
         }
 
-        // ================= VISTA TIENDA (PÚBLICA) =================
+        // ================= VISTA TIENDA =================
         function renderCats() {
             const c = document.getElementById('contenedor-categorias');
             if(!c) return;
@@ -441,7 +443,7 @@
             }).join('') : '<div class="col-span-full py-16 text-center text-muted font-bold text-sm">No hay productos en esta categoría.</div>';
         }
 
-        // ================= CARRITO Y PEDIDO =================
+        // ================= CARRITO =================
         function addCar(id) {
             const p = db.productos.find(x=>x.id===id); if(!p) return;
             const e = carritoWeb.find(x=>x.id===id);
@@ -487,7 +489,7 @@
             guardarBD().catch(()=>{}); 
         }
 
-        // ================= GESTIÓN ADMIN E IMÁGENES HD =================
+        // ================= GESTIÓN ADMIN (ACTUALIZACIÓN OPTIMISTA) =================
         function renderStock() {
             const b = document.getElementById('lista-stock-tabla'); if(!b) return;
             const s = document.getElementById('buscador-stock').value.toLowerCase();
@@ -505,30 +507,53 @@
         }
         function abrirModalStock() { document.getElementById('stock-id').value=''; document.getElementById('stock-sku').value=''; document.getElementById('stock-cat').value=''; document.getElementById('stock-nombre').value=''; document.getElementById('stock-precio').value=''; document.getElementById('stock-cantidad').value='999'; document.getElementById('modal-stock-title').innerText='Nuevo'; abrirModalUI('modal-stock'); }
         
+        // GUARDADO INSTANTÁNEO
         function guardarStock() {
             let id=document.getElementById('stock-id').value, s=document.getElementById('stock-sku').value, c=document.getElementById('stock-cat').value.toUpperCase()||'VARIOS', n=document.getElementById('stock-nombre').value, pr=parseFloat(document.getElementById('stock-precio').value)||0, cant=parseInt(document.getElementById('stock-cantidad').value)||0;
             if(!n) return mostrarToast('Falta nombre');
-            if(id) { let p=db.productos.find(x=>x.id===id); p.sku=s; p.categoria=c; p.nombre=n; p.precio=pr; p.cantidad=cant; } else db.productos.push({id:'id'+Date.now(), sku:s, categoria:c, nombre:n, precio:pr, cantidad:cant, imagenBase64:''});
-            guardarBD().then(()=>{ cerrarModal('modal-stock'); renderStock(); renderCats(); mostrarToast('Guardado'); });
+            
+            if(id) { 
+                let p=db.productos.find(x=>x.id===id); 
+                p.sku=s; p.categoria=c; p.nombre=n; p.precio=pr; p.cantidad=cant; 
+            } else { 
+                db.productos.push({id:'id'+Date.now(), sku:s, categoria:c, nombre:n, precio:pr, cantidad:cant, imagenBase64:''}); 
+            }
+            
+            // Cierre y render inmediato (0ms de latencia)
+            cerrarModal('modal-stock'); 
+            renderStock(); 
+            renderCats(); 
+            mostrarToast('Guardado');
+            
+            guardarBD(); // Sincroniza en segundo plano
         }
         
         function delP(id) { 
             if(confirm('¿Borrar?')) { 
                 db.productos = db.productos.filter(x => x.id !== id); 
-                guardarBD().then(() => { renderStock(); renderCats(); }); 
+                renderStock(); renderCats();
+                guardarBD();
             } 
         }
 
         function vaciarCatalogo() { 
             if(confirm('⚠️ ¿Borrar TODOS los productos de la base de datos?')) { 
                 db.productos=[]; 
-                guardarBD().then(()=>{ renderStock(); renderCats(); mostrarToast('Catálogo Vaciado', 'bg-[#ef4444]'); }); 
+                renderStock(); renderCats(); 
+                mostrarToast('Catálogo Vaciado', 'bg-[#ef4444]');
+                guardarBD();
             } 
         }
 
         function aumentoMasivo() {
             let pct = prompt("Aumento %:");
-            if(pct && !isNaN(pct)) { let m=1+(parseFloat(pct)/100); db.productos.forEach(x=>x.precio=Math.round(x.precio*m)); guardarBD().then(()=>{ renderStock(); renderTiendaWeb(); mostrarToast(`Aumento aplicado: ${pct}%`); }); }
+            if(pct && !isNaN(pct)) { 
+                let m=1+(parseFloat(pct)/100); 
+                db.productos.forEach(x=>x.precio=Math.round(x.precio*m)); 
+                renderStock(); renderTiendaWeb(); 
+                mostrarToast(`Aumento aplicado: ${pct}%`); 
+                guardarBD();
+            }
         }
 
         function importarExcel(e) {
@@ -548,12 +573,15 @@
                         let ex = db.productos.find(x=>(sku&&x.sku===sku) || (x.nombre||'').toLowerCase()===n.toLowerCase());
                         if(ex) { ex.precio=pr; ex.cantidad=cant; if(cat) ex.categoria=cat; } else db.productos.push({id:'id'+Date.now()+i, sku, categoria:cat, nombre:n, precio:pr, cantidad:cant, imagenBase64:''});
                     }
-                    guardarBD().then(()=>{ renderStock(); renderCats(); mostrarToast("Excel Procesado"); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; });
+                    renderStock(); renderCats();
+                    document.getElementById('carga-overlay-global').style.display='none'; 
+                    e.target.value=''; 
+                    mostrarToast("Excel Procesado");
+                    guardarBD();
                 } catch(err) { mostrarToast(err.message, 'bg-[#ef4444]'); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; } 
             }; r.readAsArrayBuffer(f);
         }
 
-        // EXPORTACIÓN A EXCEL
         function exportarExcel() {
             if(!db.productos || db.productos.length === 0) return mostrarToast('El catálogo está vacío', 'bg-[#f59e0b]');
             
@@ -580,7 +608,10 @@
             document.getElementById('carga-overlay-msg').innerText = 'Guardando foto...';
             try { 
                 p.imagenBase64 = await comprimirImagenAsincrona(file); 
-                guardarBD().then(() => { renderStock(); mostrarToast('Foto subida', 'bg-[#10b981]'); document.getElementById('carga-overlay-global').style.display = 'none'; }); 
+                renderStock(); 
+                document.getElementById('carga-overlay-global').style.display = 'none'; 
+                mostrarToast('Foto subida', 'bg-[#10b981]');
+                guardarBD();
             } catch (err) { document.getElementById('carga-overlay-global').style.display = 'none'; } 
         }
 
@@ -616,13 +647,11 @@
                 }
             }
             
-            document.getElementById('carga-overlay-msg').innerText = 'Sincronizando Nube...';
-            guardarBD().then(() => { 
-                renderStock(); 
-                document.getElementById('carga-overlay-global').style.display = 'none'; 
-                document.getElementById('input-imagenes-catalogo').value = ''; 
-                mostrarToast(`${vinculadas} fotos vinculadas.`, 'bg-[#10b981]'); 
-            });
+            renderStock(); 
+            document.getElementById('carga-overlay-global').style.display = 'none'; 
+            document.getElementById('input-imagenes-catalogo').value = ''; 
+            mostrarToast(`${vinculadas} fotos vinculadas.`, 'bg-[#10b981]'); 
+            guardarBD();
         }
 
         function comprimirImagenAsincrona(file) {
@@ -632,7 +661,7 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        const MAX_SIZE = 350; // Resolución HD para tarjetas
+                        const MAX_SIZE = 350; 
                         let width = img.width; let height = img.height; 
                         if(width > height) { if(width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
                         else { if(height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
@@ -642,7 +671,7 @@
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         
-                        resolve(canvas.toDataURL('image/jpeg', 0.65)); // Calidad alta
+                        resolve(canvas.toDataURL('image/jpeg', 0.65)); 
                     };
                     img.onerror = reject; img.src = event.target.result;
                 };
