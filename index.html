@@ -395,21 +395,22 @@
             </div>
         </div>
     </div>
-<!-- MOTOR JAVASCRIPT LITE, TEMAS & FIREBASE -->
+
+    <!-- MOTOR JAVASCRIPT LITE, TEMAS & FIREBASE -->
     <script>
         window.addEventListener('error', function(e) {
             if(e.message.includes('Script error')) return;
             document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:999999;font-weight:bold;">Error: ' + e.message + '</div>';
         });
 
-        // ================= CONFIGURACIÓN NUBE =================
+        // ================= CONFIGURACIÓN NUBE (CATÁLOGO SAMI) =================
         const firebaseConfig = {
-            apiKey: "AIzaSyDsnmGmAaRjIV1QbrNy6Hpn5NZG8yQNY0c", // REEMPLAZAR CON LAS KEYS DEL CLIENTE
-            authDomain: "jorge-hogar-erp.firebaseapp.com",
-            projectId: "jorge-hogar-erp",
-            storageBucket: "jorge-hogar-erp.firebasestorage.app",
-            messagingSenderId: "532159877469",
-            appId: "1:532159877469:web:11d0d34e5a97762e8c98b4"
+            apiKey: "AIzaSyBzgIYRyMFLL616w_OhOO_dC6bR7df5kCI",
+            authDomain: "catalogo-sami.firebaseapp.com",
+            projectId: "catalogo-sami",
+            storageBucket: "catalogo-sami.firebasestorage.app",
+            messagingSenderId: "82548197889",
+            appId: "1:82548197889:web:50330ffc4b55d640ef8e00"
         };
 
         let firestoreDb = null; let esModoNube = false; let firebaseLoaded = false;
@@ -485,16 +486,17 @@
             if (corregidos > 0) guardarBD();
         }
 
-        // Base de Datos Estructura LITE
+        // Base de Datos Estructura LITE (Aislada para Dietética Sami)
         let db = { config: {}, usuarios: [], productos: [] };
         
         try {
-            const saved = localStorage.getItem('catalogo_lite_v1');
+            const saved = localStorage.getItem('catalogo_lite_dietetica');
             if (saved) { const parsed = JSON.parse(saved); if (parsed && typeof parsed === 'object') { db = { ...db, ...parsed }; } }
         } catch (e) { console.warn("Cargando DB vacía."); }
         
         function verificarIntegridadDB() {
-            if(!db.config) db.config = { nombreEmpresa: 'Mi Tienda', whatsappTurnos: '', tema: 'dark' };
+            if(!db.config) db.config = { nombreEmpresa: 'Dietética Sami', whatsappTurnos: '', tema: 'dark' };
+            if(!db.config.nombreEmpresa) db.config.nombreEmpresa = 'Dietética Sami';
             if(!Array.isArray(db.usuarios)) db.usuarios = [];
             if(!Array.isArray(db.productos)) db.productos = [];
             if(db.usuarios.length === 0) db.usuarios = [ { id: 'admin', nombre: 'Administrador', pin: '1234' } ];
@@ -533,7 +535,7 @@
             try {
                 let dbLocal = JSON.parse(JSON.stringify(baseData));
                 if(dbLocal.productos) { dbLocal.productos.forEach(p => { if(p.imagenBase64 && p.imagenBase64.length > 500) p.imagenBase64 = "[REF]"; }); }
-                localStorage.setItem('catalogo_lite_v1', JSON.stringify(dbLocal));
+                localStorage.setItem('catalogo_lite_dietetica', JSON.stringify(dbLocal));
             } catch(e) { console.warn("Límite local alcanzado"); }
         }
 
@@ -637,7 +639,7 @@
 
         // ================= CONFIGURACIÓN =================
         function aplicarConfiguracion() {
-            const nombre = db.config.nombreEmpresa || 'Mi Tienda';
+            const nombre = db.config.nombreEmpresa || 'Dietética Sami';
             if(document.getElementById('nombreComercioSide')) document.getElementById('nombreComercioSide').value = nombre; 
             if(document.getElementById('conf-empresa-nombre')) document.getElementById('conf-empresa-nombre').value = nombre;
             if(document.getElementById('conf-empresa-ws')) document.getElementById('conf-empresa-ws').value = db.config.whatsappTurnos || '';
@@ -666,7 +668,7 @@
         }
         
         function guardarInfoEmpresa() { 
-            db.config.nombreEmpresa = document.getElementById('conf-empresa-nombre').value.trim() || 'Mi Tienda';
+            db.config.nombreEmpresa = document.getElementById('conf-empresa-nombre').value.trim() || 'Dietética Sami';
             db.config.whatsappTurnos = document.getElementById('conf-empresa-ws').value.trim() || '';
             guardarBD().then(() => { aplicarConfiguracion(); mostrarToast('Configuración guardada', 'bg-[#10b981]'); });
         }
@@ -678,7 +680,7 @@
 
         // ================= IMPORTACIÓN EXCEL & FOTOS MASIVAS =================
         function descargarPlantilla() {
-            let ws_data = [ ["Código/SKU", "Nombre del Producto", "Precio Final ($)", "Stock Físico"], ["A01", "Termo Acero Inoxidable 1L", 25000, 15], ["B02", "Mate Pampa", 12500, 30] ]; 
+            let ws_data = [ ["Código/SKU", "Nombre del Producto", "Precio Final ($)", "Stock Físico"], ["A01", "Almendras 1kg", 8500, 20], ["B02", "Aceite de Coco 500ml", 12000, 15] ]; 
             const ws = XLSX.utils.aoa_to_sheet(ws_data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Catálogo"); XLSX.writeFile(wb, "Plantilla_Catalogo.xlsx");
         }
 
@@ -1012,7 +1014,7 @@
             });
 
             guardarBD().then(() => {
-                const nombreEmpresa = db.config.nombreEmpresa || 'Mi Tienda';
+                const nombreEmpresa = db.config.nombreEmpresa || 'Dietética Sami';
                 let text = `Hola *${nombreEmpresa}*! 👋\nTe envío mi pedido web:\n\n`;
                 detalles.forEach(item => { text += `▪ *${item.cant}x* ${item.nombre} - $${item.subtotal.toLocaleString('es-AR')}\n`; });
                 text += `\n*TOTAL: $${totalVenta.toLocaleString('es-AR')}*\n\n`;
