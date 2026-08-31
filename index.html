@@ -21,8 +21,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-    
-    <!-- FIREBASE LITE (Solo Firestore, sin Storage para evitar bloqueos locales) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     
@@ -89,7 +87,8 @@
         
         .product-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
         .product-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-color: var(--accent-color); }
-        .product-image { width: 100%; height: 180px; object-fit: cover; background-color: #ffffff; }
+        /* DISEÑO DE IMAGEN HD MERCADO LIBRE: */
+        .product-image { width: 100%; height: 180px; object-fit: contain; padding: 12px; background-color: #ffffff; border-bottom: 1px solid var(--border-color); }
 
         .cat-chip { padding: 6px 16px; border-radius: 20px; font-size: 10px; font-weight: 700; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-muted); cursor: pointer; transition: 0.2s; white-space: nowrap; text-transform: uppercase; }
         .cat-chip.active, .cat-chip:hover { background: var(--accent-color); color: var(--accent-text); border-color: var(--accent-color); }
@@ -165,7 +164,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div class="bg-card p-5 rounded-2xl shadow-sm border border-borderline">
                             <h3 class="text-sm font-bold text-main mb-2"><i class="fas fa-bolt text-accent mr-2"></i> Subida Masiva de Fotos</h3>
-                            <p class="text-[10px] text-muted mb-4">Seleccioná todas las fotos juntas. El sistema las enlazará por SKU y las enviará a la nube.</p>
+                            <p class="text-[10px] text-muted mb-4">Seleccioná todas las fotos juntas. El sistema buscará el número de SKU automáticamente sin importar cómo se llame el archivo.</p>
                             <label class="bg-input text-main border border-borderline font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm cursor-pointer w-full transition hover:border-accent hover:text-accent">
                                 <i class="fas fa-images mr-2"></i> Seleccionar Imágenes
                                 <input type="file" multiple accept="image/*" class="hidden" id="input-imagenes-catalogo" onchange="procesarImagenesCatalogo(event)">
@@ -252,7 +251,6 @@
         <div class="flex-grow p-4 md:p-8 overflow-y-auto">
             <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6" id="grid-productos-tienda"></div>
         </div>
-        <a id="btn-wa-flotante" href="#" target="_blank" class="fixed bottom-6 right-6 bg-[#25d366] text-white w-14 h-14 rounded-full flex items-center justify-center text-3xl shadow-[0_10px_20px_rgba(37,211,102,0.3)] hover:scale-110 hover:bg-[#1ebe5d] transition-all z-[999999] hidden"><i class="fab fa-whatsapp"></i></a>
     </div>
 
     <!-- MODALES CARRITO Y EDICION -->
@@ -615,7 +613,8 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        let width = img.width; let height = img.height; const MAX_SIZE = 120; // Súper ligero para que entre todo
+                        const MAX_SIZE = 350; // AUMENTADO A HD PARA QUE SE VEA PERFECTO EN PANTALLA GRANDE
+                        let width = img.width; let height = img.height; 
                         if(width > height) { if(width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
                         else { if(height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                         canvas.width = Math.round(width); canvas.height = Math.round(height);
@@ -624,7 +623,7 @@
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         
-                        resolve(canvas.toDataURL('image/jpeg', 0.4)); 
+                        resolve(canvas.toDataURL('image/jpeg', 0.65)); // CALIDAD ALTA Y NÍTIDA
                     };
                     img.onerror = reject; img.src = event.target.result;
                 };
