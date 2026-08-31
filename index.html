@@ -21,6 +21,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- FIREBASE LITE (Solo Firestore, sin Storage para evitar bloqueos locales) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     
@@ -163,7 +165,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div class="bg-card p-5 rounded-2xl shadow-sm border border-borderline">
                             <h3 class="text-sm font-bold text-main mb-2"><i class="fas fa-bolt text-accent mr-2"></i> Subida Masiva de Fotos</h3>
-                            <p class="text-[10px] text-muted mb-4">Seleccioná todas las fotos juntas. El sistema buscará el número de SKU automáticamente sin importar cómo se llame el archivo.</p>
+                            <p class="text-[10px] text-muted mb-4">Seleccioná todas las fotos juntas. El sistema las enlazará por SKU y las enviará a la nube.</p>
                             <label class="bg-input text-main border border-borderline font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center text-sm cursor-pointer w-full transition hover:border-accent hover:text-accent">
                                 <i class="fas fa-images mr-2"></i> Seleccionar Imágenes
                                 <input type="file" multiple accept="image/*" class="hidden" id="input-imagenes-catalogo" onchange="procesarImagenesCatalogo(event)">
@@ -290,7 +292,7 @@
         </div>
     </div>
 
-    <!-- MOTOR JS SÚPER BLINDADO Y SEGURO (CON BÓVEDA OFFLINE) -->
+    <!-- MOTOR JS: MICRO-BASE64 DIRECTO AL DOCUMENTO CENTRAL (Bypass Local y Firebase Auth) -->
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyBzgIYRyMFLL616w_OhOO_dC6bR7df5kCI",
@@ -302,18 +304,19 @@
         };
 
         let firestoreDb = null; let esModoNube = false; let firebaseLoaded = false;
-        let isUploading = false; // Escudo protector principal
+        let isUploading = false; 
 
         try { if (typeof firebase !== 'undefined') { firebase.initializeApp(firebaseConfig); firestoreDb = firebase.firestore(); esModoNube = true; } } catch(err) {}
 
         let db = { config: {}, usuarios: [], productos: [] };
-        try { const s = localStorage.getItem('catalogo_lite_dietetica'); if (s) { const p = JSON.parse(s); if (p && typeof p === 'object') { db = { ...db, ...p }; } } } catch (e) {}
         
         function verificarIntegridadDB() {
             if(!db.config) db.config = { nombreEmpresa: 'Dietética Sami', whatsappTurnos: '', tema: 'rose' };
             if(!db.usuarios || db.usuarios.length===0) db.usuarios = [ { id: 'admin', nombre: 'Admin', pin: '1234' } ];
             if(!Array.isArray(db.productos)) db.productos = [];
         }
+        
+        try { const s = localStorage.getItem('catalogo_lite_dietetica'); if (s) { const p = JSON.parse(s); if (p && typeof p === 'object') { db = { ...db, ...p }; } } } catch (e) {}
         verificarIntegridadDB();
 
         let carritoWeb = []; let catActiva = 'TODAS';
@@ -324,34 +327,28 @@
         const debouncedRenderTienda = debounce(() => renderTiendaWeb(), 200);
         const isTiendaWeb = window.location.href.toLowerCase().includes('modo=tienda');
 
-        // ================= SINCRONIZACIÓN OFFLINE DE FOTOS =================
+        // ================= SINCRONIZACIÓN LIGERA (SOLO TEXTO) =================
         function guardarBD() {
             return new Promise((resolve) => {
                 isUploading = true;
                 try {
-                    let dbCloud = JSON.parse(JSON.stringify(db));
-                    let fotosLocales = JSON.parse(localStorage.getItem('sami_fotos_locales') || '{}');
-                    
-                    // Separar y aislar fotos ANTES de tocar la nube para no triggear bloqueos
-                    dbCloud.productos.forEach(p => {
-                        if (p.imagenBase64 && p.imagenBase64.length > 50) { fotosLocales[p.id] = p.imagenBase64; }
-                        p.imagenBase64 = ""; // JAMÁS VIAJA A FIREBASE
-                    });
-                    
-                    localStorage.setItem('sami_fotos_locales', JSON.stringify(fotosLocales));
-                    localStorage.setItem('catalogo_lite_dietetica', JSON.stringify(dbCloud)); // Respaldo PC
-
+                    guardarLocal(db); 
                     if(esModoNube && firestoreDb) {
-                        firestoreDb.collection("lite_erp").doc("tienda_base").set(dbCloud)
-                            .then(() => resolve(true)).catch(e => resolve(false));
+                        firestoreDb.collection("lite_erp").doc("tienda_base").set(db)
+                            .then(() => resolve(true))
+                            .catch(e => { console.error(e); resolve(false); });
                     } else { resolve(true); }
                 } catch (e) { resolve(false); }
                 finally { setTimeout(() => { isUploading = false; }, 1000); }
             });
         }
 
+        function guardarLocal(baseData) {
+            try { localStorage.setItem('catalogo_lite_dietetica', JSON.stringify(baseData)); } catch(e) {}
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            aplicarConfiguracion(); // Carga colores e info sin triggear guardado
+            aplicarConfiguracion(); 
             
             if(esModoNube && firestoreDb) {
                 let fbTimeout = setTimeout(() => { if(!firebaseLoaded) { firebaseLoaded = true; iniciarAppSegunRouting(); } }, 4000);
@@ -361,17 +358,8 @@
                     if(isUploading) return; 
 
                     if(doc.exists) { 
-                        let data = doc.data();
-                        let fotosLocales = JSON.parse(localStorage.getItem('sami_fotos_locales') || '{}');
-                        
-                        // Rescatar las fotos de la memoria de la PC local
-                        if(data.productos) {
-                            data.productos.forEach(p => {
-                                if(fotosLocales[p.id]) { p.imagenBase64 = fotosLocales[p.id]; }
-                            });
-                        }
-                        
-                        db = data; verificarIntegridadDB(); aplicarConfiguracion(); actualizarUI();
+                        db = doc.data();
+                        verificarIntegridadDB(); aplicarConfiguracion(); actualizarUI();
                         if(isTiendaWeb) renderTiendaWeb();
                     } else { guardarBD(); }
                     
@@ -397,7 +385,6 @@
             }
         }
 
-        // Se agrega preventSave para no triggear un infinite loop de subida
         function cambiarTema(tema, preventSave = false) {
             document.documentElement.setAttribute('data-theme', tema);
             document.querySelectorAll('.btn-theme').forEach(b => b.classList.remove('active'));
@@ -412,8 +399,6 @@
             if(document.getElementById('conf-empresa-ws')) document.getElementById('conf-empresa-ws').value = db.config.whatsappTurnos || '';
             if(document.getElementById('store-name')) document.getElementById('store-name').innerText = nombre;
             if(db.config.tema) { cambiarTema(db.config.tema, true); }
-            const wa = document.getElementById('btn-wa-flotante');
-            if(wa) { if(db.config.whatsappTurnos) { wa.href = `https://wa.me/${db.config.whatsappTurnos}`; wa.classList.remove('hidden'); } else { wa.classList.add('hidden'); } }
         }
 
         function guardarInfoEmpresa() { 
@@ -459,11 +444,12 @@
             }).join('') : '<div class="col-span-full py-16 text-center text-muted font-bold text-sm">No hay productos en esta categoría.</div>';
         }
 
-        // ================= CARRITO =================
+        // ================= CARRITO Y PEDIDO =================
         function addCar(id) {
             const p = db.productos.find(x=>x.id===id); if(!p) return;
             const e = carritoWeb.find(x=>x.id===id);
-            if(e) { if(e.cant < p.cantidad) e.cant++; else mostrarToast('Stock máximo'); } else carritoWeb.push({id:p.id, n:p.nombre, p:p.precio, cant:1});
+            const stockMax = p.cantidad !== undefined ? p.cantidad : 999;
+            if(e) { if(e.cant < stockMax) e.cant++; else mostrarToast('Stock máximo'); } else carritoWeb.push({id:p.id, n:p.nombre, p:p.precio, cant:1});
             updBadge(); mostrarToast('Agregado');
         }
         function updBadge() { const b = document.getElementById('cart-badge'); if(!b) return; const t = carritoWeb.reduce((s,i)=>s+i.cant,0); b.innerText=t; b.classList.toggle('hidden', t===0); }
@@ -471,25 +457,40 @@
         function abrirCarritoWeb() {
             const l = document.getElementById('lista-carrito-web'); let t=0;
             l.innerHTML = carritoWeb.length ? carritoWeb.map((x, i) => {
-                const s = x.cant*x.p; t+=s;
-                return `<div class="flex justify-between items-center bg-input p-3 rounded-xl border border-borderline"><div class="flex-1 pr-2"><h4 class="text-xs font-bold text-main leading-tight">${x.n}</h4><span class="text-[10px] text-muted">${x.cant}x $${x.p.toLocaleString('es-AR')} = <strong class="text-accent">$${s.toLocaleString('es-AR')}</strong></span></div><div class="flex bg-card rounded-md border border-borderline"><button onclick="modCar(${i},-1)" class="w-6 h-6 font-bold text-main">-</button><span class="w-6 flex items-center justify-center text-[10px] font-bold text-main">${x.cant}</span><button onclick="modCar(${i},1)" class="w-6 h-6 font-bold text-main">+</button></div></div>`;
+                const sub = x.cant * (x.p || 0); t+=sub;
+                return `<div class="flex justify-between items-center bg-input p-3 rounded-xl border border-borderline"><div class="flex-1 pr-2"><h4 class="text-xs font-bold text-main leading-tight">${x.n}</h4><span class="text-[10px] text-muted">${x.cant}x $${(x.p||0).toLocaleString('es-AR')} = <strong class="text-accent">$${sub.toLocaleString('es-AR')}</strong></span></div><div class="flex bg-card rounded-md border border-borderline"><button onclick="modCar(${i},-1)" class="w-6 h-6 font-bold text-main">-</button><span class="w-6 flex items-center justify-center text-[10px] font-bold text-main">${x.cant}</span><button onclick="modCar(${i},1)" class="w-6 h-6 font-bold text-main">+</button></div></div>`;
             }).join('') : '<p class="text-center text-xs text-muted font-bold py-6">Carrito vacío</p>';
             document.getElementById('total-carrito-web').innerText = '$'+t.toLocaleString('es-AR');
             abrirModalUI('modal-carrito-web');
         }
+
         function finalizarCompraWeb() {
             if(!carritoWeb.length) return;
             const n=document.getElementById('web-cli-nombre').value, tel=document.getElementById('web-cli-tel').value, d=document.getElementById('web-cli-dir').value;
             if(!n || !tel || !d) return mostrarToast('Completá los datos', 'bg-[#ef4444]');
             let m=`Hola! Pedido Tienda Sami:\n\n`; let tot=0;
-            carritoWeb.forEach(x=>{ let s=x.cant*x.p; tot+=s; m+=`▪ ${x.cant}x ${x.n} - $${s.toLocaleString('es-AR')}\n`; 
-                const pDB = db.productos.find(i=>i.id===x.id); if(pDB) pDB.cantidad -= x.cant; 
+            
+            carritoWeb.forEach(x=>{ 
+                let s = x.cant * (x.p || 0); tot+=s; 
+                m+=`▪ ${x.cant}x ${x.n} - $${s.toLocaleString('es-AR')}\n`; 
+                const pDB = db.productos.find(i=>i.id===x.id); 
+                if(pDB) pDB.cantidad -= x.cant; 
             });
             m+=`\n*TOTAL: $${tot.toLocaleString('es-AR')}*\n👤 ${n}\n📞 ${tel}\n📍 ${d}`;
-            guardarBD().then(()=>{ carritoWeb=[]; updBadge(); cerrarModal('modal-carrito-web'); renderTiendaWeb(); if(db.config.whatsappTurnos) setTimeout(()=>window.location.href=`https://wa.me/${db.config.whatsappTurnos}?text=${encodeURIComponent(m)}`, 500); else mostrarToast('Sin WhatsApp configurado'); });
+            
+            carritoWeb=[]; updBadge(); cerrarModal('modal-carrito-web'); renderTiendaWeb(); 
+            
+            const phone = db.config.whatsappTurnos;
+            if(phone) {
+                window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(m)}`;
+            } else {
+                mostrarToast('Sin WhatsApp configurado', 'bg-[#f59e0b]');
+            }
+            
+            guardarBD().catch(()=>{}); 
         }
 
-        // ================= GESTIÓN ADMIN Y FOTOS LOCALES =================
+        // ================= GESTIÓN ADMIN (STOCK, EXCEL Y FOTOS LOCALES MICRO) =================
         function renderStock() {
             const b = document.getElementById('lista-stock-tabla'); if(!b) return;
             const s = document.getElementById('buscador-stock').value.toLowerCase();
@@ -513,7 +514,20 @@
             if(id) { let p=db.productos.find(x=>x.id===id); p.sku=s; p.categoria=c; p.nombre=n; p.precio=pr; p.cantidad=cant; } else db.productos.push({id:'id'+Date.now(), sku:s, categoria:c, nombre:n, precio:pr, cantidad:cant, imagenBase64:''});
             guardarBD().then(()=>{ cerrarModal('modal-stock'); renderStock(); renderCats(); mostrarToast('Guardado'); });
         }
-        function delP(id) { if(confirm('¿Borrar?')) { db.productos=db.productos.filter(x=>x.id!==id); guardarBD().then(()=>{ renderStock(); renderCats(); }); } }
+        
+        function delP(id) { 
+            if(confirm('¿Borrar?')) { 
+                db.productos = db.productos.filter(x => x.id !== id); 
+                guardarBD().then(() => { renderStock(); renderCats(); }); 
+            } 
+        }
+
+        function vaciarCatalogo() { 
+            if(confirm('⚠️ ¿Borrar TODOS los productos de la base de datos?')) { 
+                db.productos=[]; 
+                guardarBD().then(()=>{ renderStock(); renderCats(); mostrarToast('Catálogo Vaciado', 'bg-[#ef4444]'); }); 
+            } 
+        }
 
         function aumentoMasivo() {
             let pct = prompt("Aumento %:");
@@ -523,7 +537,7 @@
         function importarExcel(e) {
             let f = e.target.files[0]; if(!f) return;
             document.getElementById('carga-overlay-global').style.display='flex';
-            document.getElementById('carga-overlay-msg').innerText = 'Subiendo Lista...';
+            document.getElementById('carga-overlay-msg').innerText = 'Procesando Excel...';
             let r = new FileReader();
             r.onload = function(evt) {
                 try {
@@ -538,7 +552,7 @@
                         if(ex) { ex.precio=pr; ex.cantidad=cant; if(cat) ex.categoria=cat; } else db.productos.push({id:'id'+Date.now()+i, sku, categoria:cat, nombre:n, precio:pr, cantidad:cant, imagenBase64:''});
                     }
                     guardarBD().then(()=>{ renderStock(); renderCats(); mostrarToast("Excel Procesado"); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; });
-                } catch(err) { mostrarToast("Error en Excel", "bg-[#ef4444]"); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; } 
+                } catch(err) { mostrarToast(err.message, 'bg-[#ef4444]'); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; } 
             }; r.readAsArrayBuffer(f);
         }
 
@@ -546,7 +560,7 @@
             const file = e.target.files[0]; if(!file) return;
             const p = db.productos.find(x => x.id === id); if(!p) return;
             document.getElementById('carga-overlay-global').style.display = 'flex';
-            document.getElementById('carga-overlay-msg').innerText = 'Guardando local...';
+            document.getElementById('carga-overlay-msg').innerText = 'Guardando foto...';
             try { 
                 p.imagenBase64 = await comprimirImagenAsincrona(file); 
                 guardarBD().then(() => { renderStock(); mostrarToast('Foto subida', 'bg-[#10b981]'); document.getElementById('carga-overlay-global').style.display = 'none'; }); 
@@ -556,7 +570,7 @@
         async function procesarImagenesCatalogo(e) {
             const files = Array.from(e.target.files); if(!files.length) return;
             document.getElementById('carga-overlay-global').style.display = 'flex';
-            document.getElementById('carga-overlay-msg').innerText = 'Vinculando fotos localmente...';
+            document.getElementById('carga-overlay-msg').innerText = 'Vinculando fotos...';
             
             let vinculadas = 0; const skuMap = new Map();
             
@@ -585,12 +599,12 @@
                 }
             }
             
-            document.getElementById('carga-overlay-msg').innerText = 'Finalizando...';
+            document.getElementById('carga-overlay-msg').innerText = 'Sincronizando Nube...';
             guardarBD().then(() => { 
                 renderStock(); 
                 document.getElementById('carga-overlay-global').style.display = 'none'; 
                 document.getElementById('input-imagenes-catalogo').value = ''; 
-                mostrarToast(`${vinculadas} fotos vinculadas perfecto.`, 'bg-[#10b981]'); 
+                mostrarToast(`${vinculadas} fotos vinculadas.`, 'bg-[#10b981]'); 
             });
         }
 
@@ -601,12 +615,12 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        let width = img.width; let height = img.height; const MAX_SIZE = 180; 
+                        let width = img.width; let height = img.height; const MAX_SIZE = 120; // Súper ligero para que entre todo
                         if(width > height) { if(width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
                         else { if(height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                         canvas.width = Math.round(width); canvas.height = Math.round(height);
                         
-                        ctx.fillStyle = '#ffffff';
+                        ctx.fillStyle = '#ffffff'; 
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         
@@ -616,17 +630,6 @@
                 };
                 reader.onerror = reject; reader.readAsDataURL(file);
             });
-        }
-
-        function vaciarCatalogo() { 
-            if(confirm('⚠️ ¿Estás segura de eliminar TODOS los datos (productos y fotos)?')) { 
-                db.productos=[]; 
-                localStorage.removeItem('sami_fotos_locales'); // Limpieza profunda local
-                guardarBD().then(()=>{ 
-                    renderStock(); renderCats(); 
-                    mostrarToast('Base de datos eliminada', 'bg-[#ef4444]'); 
-                }); 
-            } 
         }
 
         // ================= UTILIDADES =================
