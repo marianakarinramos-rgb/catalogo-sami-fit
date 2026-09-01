@@ -369,7 +369,7 @@
             if(!Array.isArray(db.productos)) db.productos = [];
         }
         
-        try { const s = localStorage.getItem('catalogo_plantilla_maestra'); if (s) { const p = JSON.parse(s); if (p && typeof p === 'object') { db = { ...db, ...p }; } } } catch (e) {}
+        try { const s = localStorage.getItem('catalogo_tienda_base'); if (s) { const p = JSON.parse(s); if (p && typeof p === 'object') { db = { ...db, ...p }; } } } catch (e) {}
         verificarIntegridadDB();
 
         let carritoWeb = []; let catActiva = 'TODAS';
@@ -386,7 +386,7 @@
                 try {
                     guardarLocal(db); 
                     if(esModoNube && firestoreDb) {
-                        firestoreDb.collection("lite_erp").doc("plantilla_maestra").set(db)
+                        firestoreDb.collection("lite_erp").doc("tienda_base").set(db)
                             .then(() => resolve(true))
                             .catch(e => { console.error(e); resolve(false); });
                     } else { resolve(true); }
@@ -396,7 +396,7 @@
         }
 
         function guardarLocal(baseData) {
-            try { localStorage.setItem('catalogo_plantilla_maestra', JSON.stringify(baseData)); } catch(e) {}
+            try { localStorage.setItem('catalogo_tienda_base', JSON.stringify(baseData)); } catch(e) {}
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -419,7 +419,7 @@
                     } 
                 }, 4000);
                 
-                firestoreDb.collection("lite_erp").doc("plantilla_maestra").onSnapshot(doc => {
+                firestoreDb.collection("lite_erp").doc("tienda_base").onSnapshot(doc => {
                     clearTimeout(fbTimeout);
                     if(isUploading) return; 
 
