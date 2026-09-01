@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sami-fit-v1';
+const CACHE_NAME = 'sami-fit-v2';
 const urlsToCache = [
   '/',
   '/index.html',
