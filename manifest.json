@@ -1,0 +1,21 @@
+{
+  "name": "Sami Fit - Catálogo",
+  "short_name": "Sami Fit",
+  "description": "Catálogo de productos y stock en vivo de Sami Fit",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff1f2",
+  "theme_color": "#fb7185",
+  "icons": [
+    {
+      "src": "/icono-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icono-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
