@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="es" data-theme="rose"><head>
+<!DOCTYPE html>
+<html lang="es" data-theme="rose">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gesto Smart Lite - Plantilla</title>
@@ -88,7 +90,7 @@
 
         body.modo-tienda-activa #erp-container { display: none !important; }
         body.modo-tienda-activa #public-catalog { display: flex !important; }
-        #public-catalog { position: fixed; inset: 0; background-color: var(--bg-base); z-index: 99999; display: none; flex-direction: column; overflow-y: auto; }
+        #public-catalog { position: fixed; inset: 0; background-color: var(--bg-base); z-index: 99999; display: none; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; }
         
         .product-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
         .product-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-color: var(--accent-color); }
@@ -100,6 +102,17 @@
         .btn-theme { border: 2px solid transparent; opacity: 0.6; transition: all 0.2s; }
         .btn-theme:hover { opacity: 1; transform: scale(1.02); }
         .btn-theme.active { opacity: 1; border-color: var(--accent-color); box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+
+        #btn-subir-top { position: fixed; bottom: 20px; right: 20px; background-color: var(--accent-color); color: var(--accent-text); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s; z-index: 999990; }
+        #btn-subir-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        #btn-subir-top:hover { opacity: 0.9; transform: translateY(-3px); }
+
+        @media print {
+            body { background: #ffffff !important; background-image: none !important; color: #111827 !important; overflow: visible !important; }
+            #erp-container, #toast-container, .cargando-overlay, #public-catalog, #pantalla-login, #btn-subir-top { display: none !important; }
+            #pdf-mayorista-preview { display: block !important; position: static !important; width: 100% !important; background: #ffffff !important; }
+            @page { margin: 8mm; size: auto; }
+        }
     </style>
 </head>
 <body class="h-screen w-full">
@@ -248,7 +261,13 @@
         </main>
     </div>
 
+    <!-- ================= CATÁLOGO PÚBLICO (MODO TIENDA) ================= -->
     <div id="public-catalog" class="hidden flex-col fixed inset-0 z-[99999] overflow-y-auto bg-base">
+        <!-- BOTÓN SUBIR TOP (NUEVO) -->
+        <button id="btn-subir-top" onclick="document.getElementById('public-catalog').scrollTo({top: 0, behavior: 'smooth'})">
+            <i class="fas fa-chevron-up"></i>
+        </button>
+
         <div id="pwa-install-banner" class="hidden bg-accent/10 border border-accent/30 rounded-2xl p-4 mx-4 my-3 flex items-center justify-between fade-in shadow-lg">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-accent text-accenttext rounded-xl flex items-center justify-center font-bold text-lg shadow-sm">
@@ -298,6 +317,30 @@
         </div>
     </div>
 
+    <!-- MODAL VISTA RÁPIDA (QUICK VIEW) -->
+    <div id="modal-quick-view" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 backdrop-blur-sm z-[999999]">
+        <div class="bg-card border border-borderline rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden fade-in flex flex-col relative">
+            <button onclick="cerrarModal('modal-quick-view')" class="absolute top-4 right-4 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition shadow-md z-10">
+                <i class="fas fa-times"></i>
+            </button>
+            <img id="qv-img" src="" class="w-full h-64 md:h-80 object-cover bg-white">
+            <div class="p-6 flex flex-col gap-3">
+                <div class="flex justify-between items-start gap-4">
+                    <div>
+                        <span id="qv-cat" class="text-[10px] bg-input border border-borderline text-accent px-2 py-0.5 rounded font-bold uppercase mb-2 inline-block"></span>
+                        <h3 id="qv-nombre" class="text-xl font-black text-main leading-tight"></h3>
+                    </div>
+                    <span id="qv-precio" class="text-2xl font-black text-accent shrink-0"></span>
+                </div>
+                <p id="qv-desc" class="text-sm text-muted leading-relaxed max-h-32 overflow-y-auto"></p>
+                <button id="qv-btn-add" class="w-full mt-2 bg-accent text-accenttext py-3.5 rounded-xl font-bold shadow-md hover:opacity-90 transition flex justify-center items-center gap-2 text-sm">
+                    <i class="fas fa-cart-plus"></i> Agregar al pedido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES EXISTENTES -->
     <div id="modal-ios-install" class="fixed inset-0 bg-black/80 hidden items-end justify-center p-4 backdrop-blur-sm z-[9999999]">
         <div class="bg-card border border-borderline rounded-t-3xl w-full max-w-md p-6 text-center fade-in space-y-4">
             <div class="w-12 h-1 bg-borderline rounded-full mx-auto mb-2"></div>
@@ -318,7 +361,10 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                     <div><label class="text-[9px] font-bold text-muted uppercase block mb-1">Nombre Completo *</label><input type="text" id="web-cli-nombre" class="w-full border border-borderline bg-card text-main p-2.5 rounded-lg outline-none focus:border-accent" required></div>
                     <div><label class="text-[9px] font-bold text-muted uppercase block mb-1">Teléfono *</label><input type="text" id="web-cli-tel" class="w-full border border-borderline bg-card text-main p-2.5 rounded-lg outline-none focus:border-accent" required></div>
-                    <div class="md:col-span-2"><label class="text-[9px] font-bold text-muted uppercase block mb-1">Dirección / Aclaraciones *</label><input type="text" id="web-cli-dir" class="w-full border border-borderline bg-card text-main p-2.5 rounded-lg outline-none focus:border-accent" required></div>
+                    <div class="md:col-span-2">
+                        <label class="text-[9px] font-bold text-muted uppercase block mb-1">Dirección / Aclaraciones *</label>
+                        <input type="text" id="web-cli-dir" class="w-full border border-borderline bg-card text-main p-2.5 rounded-lg outline-none focus:border-accent" placeholder="Ej: Calle 123, timbre 2. Sin sal." required>
+                    </div>
                 </div>
                 <div class="flex justify-between items-center pt-2 border-t border-borderline mt-2"><span class="text-muted font-bold uppercase text-xs">Total</span><h3 class="text-2xl font-black text-[#10b981]" id="total-carrito-web">$0</h3></div>
                 <button onclick="finalizarCompraWeb()" class="w-full bg-[#10b981] hover:bg-[#34d399] text-white py-3.5 rounded-xl font-bold shadow-md transition flex justify-center items-center text-sm mt-2"><i class="fab fa-whatsapp mr-2 text-lg"></i> Enviar Pedido por WhatsApp</button>
@@ -326,6 +372,7 @@
         </div>
     </div>
 
+    <!-- MODAL EDICION PRODUCTO -->
     <div id="modal-stock" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 backdrop-blur-sm z-[999998]">
         <div class="bg-card border border-borderline rounded-3xl w-full max-w-md shadow-2xl p-6 fade-in">
             <div class="flex justify-between items-center mb-4 border-b border-borderline pb-3"><h3 class="font-bold text-main text-base" id="modal-stock-title">Artículo</h3><button onclick="cerrarModal('modal-stock')" class="text-muted hover:text-[#ef4444]"><i class="fas fa-times text-lg"></i></button></div>
@@ -336,6 +383,13 @@
                     <div class="col-span-2"><label class="text-[9px] font-bold text-muted uppercase block mb-1">Categoría</label><input type="text" id="stock-cat" class="w-full border border-borderline bg-input text-main p-2.5 rounded-lg text-xs font-bold uppercase"></div>
                 </div>
                 <div><label class="text-[9px] font-bold text-muted uppercase block mb-1">Nombre de Producto</label><input type="text" id="stock-nombre" class="w-full border border-borderline bg-input text-main p-2.5 rounded-lg text-sm font-bold" required></div>
+                
+                <!-- AGREGADO CAMPO DESCRIPCIÓN -->
+                <div>
+                    <label class="text-[9px] font-bold text-muted uppercase block mb-1">Descripción (Opcional - Máx 300 car.)</label>
+                    <textarea id="stock-desc" rows="2" maxlength="300" class="w-full border border-borderline bg-input text-main p-2.5 rounded-lg text-xs resize-none placeholder-muted" placeholder="Detalles, medidas, materiales..."></textarea>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div><label class="text-[9px] font-bold text-[#10b981] uppercase block mb-1">Precio Final ($)</label><input type="number" id="stock-precio" class="w-full border border-[#10b981]/50 bg-input text-[#10b981] p-2.5 rounded-lg text-sm font-black"></div>
                     <div><label class="text-[9px] font-bold text-muted uppercase block mb-1">Stock Opcional</label><input type="number" id="stock-cantidad" class="w-full border border-borderline bg-input text-main p-2.5 rounded-lg text-sm" value="999"></div>
@@ -398,6 +452,22 @@
         function guardarLocal(baseData) {
             try { localStorage.setItem('catalogo_tienda_base', JSON.stringify(baseData)); } catch(e) {}
         }
+
+        // LÓGICA DEL BOTÓN FLOTANTE "SUBIR"
+        document.addEventListener('DOMContentLoaded', () => {
+            const catalogo = document.getElementById('public-catalog');
+            const btnSubir = document.getElementById('btn-subir-top');
+            
+            if(catalogo && btnSubir) {
+                catalogo.addEventListener('scroll', () => {
+                    if (catalogo.scrollTop > 300) {
+                        btnSubir.classList.add('visible');
+                    } else {
+                        btnSubir.classList.remove('visible');
+                    }
+                });
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             aplicarConfiguracion(); 
@@ -529,7 +599,7 @@
             }
 
             aplicarConfiguracion();
-            mostrarToast('Configuración guardada');
+            mostrarToast('Configuración guardada', 'bg-[#10b981]');
             guardarBD(); 
         }
 
@@ -554,7 +624,7 @@
             if(confirm('¿Segura que querés eliminar el logo?')) {
                 db.config.logoBase64 = "";
                 aplicarConfiguracion();
-                mostrarToast('Logo eliminado');
+                mostrarToast('Logo eliminado', 'bg-[#10b981]');
                 guardarBD();
             }
         }
@@ -567,19 +637,42 @@
         }
         function selCat(c) { catActiva = c; renderCats(); renderTiendaWeb(); }
 
+        function abrirQuickView(id) {
+            const p = db.productos.find(x => x.id === id); if(!p) return;
+            const img = (p.imagenBase64 && p.imagenBase64.length > 50) ? p.imagenBase64 : 'https://via.placeholder.com/600/1e293b/8b949e?text=Tienda';
+            
+            document.getElementById('qv-img').src = img;
+            document.getElementById('qv-cat').innerText = p.categoria || 'VAR';
+            document.getElementById('qv-nombre').innerText = p.nombre;
+            document.getElementById('qv-desc').innerText = p.desc || 'Sin descripción adicional detallada.';
+            document.getElementById('qv-precio').innerText = '$' + (p.precio||0).toLocaleString('es-AR');
+            
+            document.getElementById('qv-btn-add').onclick = () => { 
+                addCar(p.id); 
+                cerrarModal('modal-quick-view'); 
+            };
+            
+            abrirModalUI('modal-quick-view');
+        }
+
         function renderTiendaWeb() {
             const elSearch = document.getElementById('buscador-tienda');
             const t = elSearch ? elSearch.value.toLowerCase() : '';
             let arr = db.productos.filter(p => p.cantidad > 0);
             if(catActiva !== 'TODAS') arr = arr.filter(p => (p.categoria||'VARIOS') === catActiva);
-            if(t) arr = arr.filter(p => (p.nombre||'').toLowerCase().includes(t) || (p.sku||'').toLowerCase().includes(t));
+            if(t) arr = arr.filter(p => (p.nombre||'').toLowerCase().includes(t) || (p.sku||'').toLowerCase().includes(t) || (p.desc||'').toLowerCase().includes(t));
 
             const grid = document.getElementById('grid-productos-tienda');
             if(!grid) return;
             grid.innerHTML = arr.length ? arr.map(p => {
                 const img = (p.imagenBase64 && p.imagenBase64.length > 50) ? p.imagenBase64 : 'https://via.placeholder.com/300/1e293b/8b949e?text=Tienda';
                 return `<div class="product-card">
-                            <img src="${img}" class="product-image" loading="lazy">
+                            <div class="relative group cursor-pointer" onclick="abrirQuickView('${p.id}')">
+                                <img src="${img}" class="product-image group-hover:opacity-90 transition" loading="lazy">
+                                <div class="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center transition">
+                                    <span class="bg-card text-main border border-borderline text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg uppercase tracking-wider"><i class="fas fa-search-plus mr-1"></i> Ver</span>
+                                </div>
+                            </div>
                             <div class="p-4 flex flex-col flex-grow">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-[9px] bg-input border border-borderline text-accent px-2 py-0.5 rounded font-bold uppercase">${p.categoria||'VAR'}</span>
@@ -600,11 +693,12 @@
             const p = db.productos.find(x=>x.id===id); if(!p) return;
             const e = carritoWeb.find(x=>x.id===id);
             const stockMax = p.cantidad !== undefined ? p.cantidad : 999;
-            if(e) { if(e.cant < stockMax) e.cant++; else mostrarToast('Stock máximo'); } else carritoWeb.push({id:p.id, n:p.nombre, p:p.precio, cant:1});
-            updBadge(); mostrarToast('Agregado');
+            if(e) { if(e.cant < stockMax) e.cant++; else mostrarToast('Stock máximo', 'bg-[#f59e0b]'); } else carritoWeb.push({id:p.id, n:p.nombre, p:p.precio, cant:1});
+            updBadge(); mostrarToast('Agregado', 'bg-[#10b981]');
         }
         function updBadge() { const b = document.getElementById('cart-badge'); if(!b) return; const t = carritoWeb.reduce((s,i)=>s+i.cant,0); b.innerText=t; b.classList.toggle('hidden', t===0); }
         function modCar(i, d) { carritoWeb[i].cant+=d; if(carritoWeb[i].cant<=0) carritoWeb.splice(i,1); updBadge(); abrirCarritoWeb(); }
+        
         function abrirCarritoWeb() {
             const l = document.getElementById('lista-carrito-web'); let t=0;
             l.innerHTML = carritoWeb.length ? carritoWeb.map((x, i) => {
@@ -648,7 +742,7 @@
                 navigator.share(shareData).catch(() => {});
             } else {
                 navigator.clipboard.writeText(window.location.href);
-                mostrarToast('¡Link del catálogo copiado!');
+                mostrarToast('¡Link del catálogo copiado!', 'bg-[#10b981]');
             }
         }
 
@@ -665,22 +759,47 @@
 
         function editP(id) {
             let p=db.productos.find(x=>x.id===id); if(!p) return;
-            document.getElementById('stock-id').value=p.id; document.getElementById('stock-sku').value=p.sku||''; document.getElementById('stock-cat').value=p.categoria||''; document.getElementById('stock-nombre').value=p.nombre; document.getElementById('stock-precio').value=p.precio; document.getElementById('stock-cantidad').value=p.cantidad; document.getElementById('modal-stock-title').innerText='Editar'; abrirModalUI('modal-stock');
+            document.getElementById('stock-id').value=p.id; 
+            document.getElementById('stock-sku').value=p.sku||''; 
+            document.getElementById('stock-cat').value=p.categoria||''; 
+            document.getElementById('stock-nombre').value=p.nombre; 
+            document.getElementById('stock-desc').value=p.desc||''; // Agregado desc
+            document.getElementById('stock-precio').value=p.precio; 
+            document.getElementById('stock-cantidad').value=p.cantidad; 
+            document.getElementById('modal-stock-title').innerText='Editar'; 
+            abrirModalUI('modal-stock');
         }
-        function abrirModalStock() { document.getElementById('stock-id').value=''; document.getElementById('stock-sku').value=''; document.getElementById('stock-cat').value=''; document.getElementById('stock-nombre').value=''; document.getElementById('stock-precio').value=''; document.getElementById('stock-cantidad').value='999'; document.getElementById('modal-stock-title').innerText='Nuevo'; abrirModalUI('modal-stock'); }
+        function abrirModalStock() { 
+            document.getElementById('stock-id').value=''; 
+            document.getElementById('stock-sku').value=''; 
+            document.getElementById('stock-cat').value=''; 
+            document.getElementById('stock-nombre').value=''; 
+            document.getElementById('stock-desc').value=''; // Agregado desc
+            document.getElementById('stock-precio').value=''; 
+            document.getElementById('stock-cantidad').value='999'; 
+            document.getElementById('modal-stock-title').innerText='Nuevo'; 
+            abrirModalUI('modal-stock'); 
+        }
         
         function guardarStock() {
-            let id=document.getElementById('stock-id').value, s=document.getElementById('stock-sku').value, c=document.getElementById('stock-cat').value.toUpperCase()||'VARIOS', n=document.getElementById('stock-nombre').value, pr=parseFloat(document.getElementById('stock-precio').value)||0, cant=parseInt(document.getElementById('stock-cantidad').value)||0;
-            if(!n) return mostrarToast('Falta nombre');
+            let id=document.getElementById('stock-id').value, 
+                s=document.getElementById('stock-sku').value, 
+                c=document.getElementById('stock-cat').value.toUpperCase()||'VARIOS', 
+                n=document.getElementById('stock-nombre').value, 
+                desc=document.getElementById('stock-desc').value.trim(), 
+                pr=parseFloat(document.getElementById('stock-precio').value)||0, 
+                cant=parseInt(document.getElementById('stock-cantidad').value)||0;
+                
+            if(!n) return mostrarToast('Falta nombre', 'bg-[#ef4444]');
             
             if(id) { 
                 let p=db.productos.find(x=>x.id===id); 
-                p.sku=s; p.categoria=c; p.nombre=n; p.precio=pr; p.cantidad=cant; 
+                p.sku=s; p.categoria=c; p.nombre=n; p.desc=desc; p.precio=pr; p.cantidad=cant; 
             } else { 
-                db.productos.push({id:'id'+Date.now(), sku:s, categoria:c, nombre:n, precio:pr, cantidad:cant, imagenBase64:''}); 
+                db.productos.push({id:'id'+Date.now(), sku:s, categoria:c, nombre:n, desc:desc, precio:pr, cantidad:cant, imagenBase64:''}); 
             }
             
-            cerrarModal('modal-stock'); renderStock(); renderCats(); mostrarToast('Guardado');
+            cerrarModal('modal-stock'); renderStock(); renderCats(); mostrarToast('Guardado', 'bg-[#10b981]');
             guardarBD(); 
         }
         
@@ -707,7 +826,7 @@
                 let m=1+(parseFloat(pct)/100); 
                 db.productos.forEach(x=>x.precio=Math.round(x.precio*m)); 
                 renderStock(); renderTiendaWeb(); 
-                mostrarToast(`Aumento aplicado: ${pct}%`); 
+                mostrarToast(`Aumento aplicado: ${pct}%`, 'bg-[#10b981]'); 
                 guardarBD();
             }
         }
@@ -721,18 +840,18 @@
                 try {
                     let d = new Uint8Array(evt.target.result); let wb = XLSX.read(d, {type:'array'}); let sheet = wb.Sheets[wb.SheetNames[0]]; let json = XLSX.utils.sheet_to_json(sheet, {header:1});
                     let h = json[0].map(x=>String(x||'').toLowerCase().trim());
-                    let cs=h.findIndex(x=>x.includes('sku')||x.includes('cod')), cn=h.findIndex(x=>x.includes('nombre')||x.includes('producto')), cp=h.findIndex(x=>x.includes('precio')), ccat=h.findIndex(x=>x.includes('cat')), ccant=h.findIndex(x=>x.includes('stock'));
+                    let cs=h.findIndex(x=>x.includes('sku')||x.includes('cod')), cn=h.findIndex(x=>x.includes('nombre')||x.includes('producto')), cp=h.findIndex(x=>x.includes('precio')), ccat=h.findIndex(x=>x.includes('cat')), ccant=h.findIndex(x=>x.includes('stock')), cdesc=h.findIndex(x=>x.includes('desc'));
                     if(cn===-1 || cp===-1) throw new Error("Falta Nombre o Precio en el Excel");
                     for(let i=1; i<json.length; i++) {
                         let row=json[i]; if(!row || !row[cn]) continue;
-                        let sku=cs!==-1?String(row[cs]||'').trim():'', n=String(row[cn]).trim(), pr=parseFloat(String(row[cp]).replace(',','.'))||0, cat=ccat!==-1?String(row[ccat]||'').toUpperCase().trim():'VARIOS', cant=ccant!==-1?parseInt(row[ccant])||0:999;
+                        let sku=cs!==-1?String(row[cs]||'').trim():'', n=String(row[cn]).trim(), pr=parseFloat(String(row[cp]).replace(',','.'))||0, cat=ccat!==-1?String(row[ccat]||'').toUpperCase().trim():'VARIOS', cant=ccant!==-1?parseInt(row[ccant])||0:999, desc=cdesc!==-1?String(row[cdesc]||'').trim():'';
                         let ex = db.productos.find(x=>(sku&&x.sku===sku) || (x.nombre||'').toLowerCase()===n.toLowerCase());
-                        if(ex) { ex.precio=pr; ex.cantidad=cant; if(cat) ex.categoria=cat; } else db.productos.push({id:'id'+Date.now()+i, sku, categoria:cat, nombre:n, precio:pr, cantidad:cant, imagenBase64:''});
+                        if(ex) { ex.precio=pr; ex.cantidad=cant; if(cat) ex.categoria=cat; if(desc) ex.desc=desc; } else db.productos.push({id:'id'+Date.now()+i, sku, categoria:cat, nombre:n, desc:desc, precio:pr, cantidad:cant, imagenBase64:''});
                     }
                     renderStock(); renderCats();
                     document.getElementById('carga-overlay-global').style.display='none'; 
                     e.target.value=''; 
-                    mostrarToast("Excel Procesado");
+                    mostrarToast("Excel Procesado", "bg-[#10b981]");
                     guardarBD();
                 } catch(err) { mostrarToast(err.message, 'bg-[#ef4444]'); document.getElementById('carga-overlay-global').style.display='none'; e.target.value=''; } 
             }; r.readAsArrayBuffer(f);
@@ -741,11 +860,11 @@
         function exportarExcel() {
             if(!db.productos || db.productos.length === 0) return mostrarToast('El catálogo está vacío', 'bg-[#f59e0b]');
             const dataToExport = db.productos.map(p => ({
-                SKU: p.sku || '', Categoría: p.categoria || 'VARIOS', Nombre: p.nombre || '', Precio: p.precio || 0, Stock: p.cantidad !== undefined ? p.cantidad : 999
+                SKU: p.sku || '', Categoría: p.categoria || 'VARIOS', Nombre: p.nombre || '', Descripción: p.desc || '', Precio: p.precio || 0, Stock: p.cantidad !== undefined ? p.cantidad : 999
             }));
             const ws = XLSX.utils.json_to_sheet(dataToExport); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Catálogo");
             XLSX.writeFile(wb, "Catalogo_Backup.xlsx");
-            mostrarToast('Excel descargado con éxito');
+            mostrarToast('Excel descargado con éxito', 'bg-[#10b981]');
         }
 
         async function procesarImagenIndividual(e, id) {
@@ -847,7 +966,7 @@
         function switchTab(t, el) { document.querySelectorAll('.tab-content').forEach(x=>x.classList.add('hidden')); document.querySelectorAll('.tab-link').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.remove('hidden'); el.classList.add('active'); }
         function abrirModalUI(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
         function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
-        function mostrarToast(m, c='bg-[#10b981]') { const co=document.getElementById('toast-container'), d=document.createElement('div'); d.className=`toast ${c} text-white text-xs`; d.innerHTML=m; co.appendChild(d); setTimeout(()=>{ d.style.animation='slideIn 0.3s reverse forwards'; setTimeout(()=>d.remove(),300); },3000); }
+        function mostrarToast(m, c='bg-accent') { const co=document.getElementById('toast-container'), d=document.createElement('div'); d.className=`toast ${c} text-accenttext text-xs`; d.innerHTML=m; co.appendChild(d); setTimeout(()=>{ d.style.animation='slideIn 0.3s reverse forwards'; setTimeout(()=>d.remove(),300); },3000); }
         
         let deferredPrompt = null;
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
